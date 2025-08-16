@@ -48,7 +48,20 @@ function tryUTF8(str: Uint8Array) {
   return true
 }
 
-export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metadata>, options: Options) {
+// Enhanced metadata for ZIP entries
+export interface ZipEntryMetadata {
+  filename: string;
+  offset: bigint;
+  dataOffset: bigint;
+  compressedSize: bigint;
+  uncompressedSize: bigint;
+  crc32: number;
+  compressionMethod: number;
+  flags: number;
+  headerSize: number;
+}
+
+export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metadata>, options: Options & { onEntry?: (entry: ZipEntryMetadata) => void }) {
   const centralRecord: Uint8Array[] = []
   let offset = 0n
   let fileCount = 0n
@@ -57,6 +70,9 @@ export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metad
   // write files
   for await (const file of files) {
     const flags = flagNameUTF8(file, options.buffersAreUTF8)
+    const localHeaderSize = fileHeaderLength + file.encodedName.length;
+    const currentOffset = Number(offset);
+    
     yield fileHeader(file, flags)
     yield new Uint8Array(file.encodedName)
     if (file.isFile) {
@@ -67,6 +83,24 @@ export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metad
     // @ts-ignore
     const zip64HeaderLength = (bigOffset * 12 | bigFile * 28) as Zip64FieldLength
     yield dataDescriptor(file, bigFile)
+
+    // Calculate entry metadata
+    const entryMetadata: ZipEntryMetadata = {
+      filename: new TextDecoder().decode(file.encodedName),
+      offset: offset,
+      dataOffset: offset + BigInt(localHeaderSize),
+      compressedSize: file.uncompressedSize!, // No compression, so same as uncompressed
+      uncompressedSize: file.uncompressedSize!,
+      crc32: file.isFile ? file.crc! : 0,
+      compressionMethod: 0, // STORE method (no compression)
+      flags: flags,
+      headerSize: localHeaderSize,
+    };
+
+    // Call the callback if provided
+    if (options.onEntry) {
+      options.onEntry(entryMetadata);
+    }
 
     centralRecord.push(centralHeader(file, offset, flags, zip64HeaderLength))
     centralRecord.push(file.encodedName)
@@ -137,6 +171,7 @@ export async function* fileData(file: ZipFileDescription & Metadata) {
     file.uncompressedSize = BigInt(bytes.length)
   } else {
     file.uncompressedSize = 0n
+    file.crc = 0 // Initialize CRC for empty streams
     const reader = bytes.getReader()
     while (true) {
       const { value, done } = await reader.read()
