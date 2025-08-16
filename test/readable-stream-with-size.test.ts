@@ -1,14 +1,36 @@
 import { describe, expect, it } from 'vitest'
-import { makeZipWithSize, ReadableStreamWithSize } from '../src'
+import { makeZip, makeZipWithEntries, ReadableStreamWithSize } from '../src'
 
 describe('ReadableStreamWithSize', () => {
+  it('should ensure all ZIP functions return ReadableStreamWithSize', async () => {
+    const files = [
+      { name: 'test.txt', input: 'Hello', size: 5 }
+    ]
+
+    // Test makeZip
+    const zipStream = makeZip(files, { metadata: files })
+    expect(zipStream).toBeInstanceOf(ReadableStream)
+    expect(zipStream).toHaveProperty('size')
+    expect(typeof zipStream.size).toBe('bigint')
+
+    // Test makeZipWithEntries
+    const { stream: entriesStream } = makeZipWithEntries(files, { metadata: files })
+    expect(entriesStream).toBeInstanceOf(ReadableStream)
+    expect(entriesStream).toHaveProperty('size')
+    expect(typeof entriesStream.size).toBe('bigint')
+
+    // Both should return the same size
+    expect(zipStream.size).toBe(entriesStream.size)
+
+    console.log('All functions return ReadableStreamWithSize with size:', zipStream.size)
+  })
   it('should return a ReadableStream with size property when metadata is provided', async () => {
     const files = [
       { name: 'test1.txt', input: 'Hello, World!', size: 13 },
       { name: 'test2.txt', input: 'Second file', size: 11 }
     ]
 
-    const stream = makeZipWithSize(files, {
+    const stream = makeZip(files, {
       metadata: files
     })
 
@@ -29,7 +51,7 @@ describe('ReadableStreamWithSize', () => {
       { name: 'test.txt', input: new Blob(['Hello']) }
     ]
 
-    const stream = makeZipWithSize(files)
+    const stream = makeZip(files)
 
     // Check that it's a ReadableStream
     expect(stream).toBeInstanceOf(ReadableStream)
@@ -45,7 +67,7 @@ describe('ReadableStreamWithSize', () => {
       { name: 'test.txt', input: 'Test content', size: 12 }
     ]
 
-    const stream = makeZipWithSize(files, {
+    const stream = makeZip(files, {
       metadata: files
     })
 
@@ -79,7 +101,7 @@ describe('ReadableStreamWithSize', () => {
       { name: 'test.txt', input: 'Test', size: 4 }
     ]
 
-    const stream = makeZipWithSize(files, {
+    const stream = makeZip(files, {
       signal: controller.signal,
       metadata: files
     })
@@ -102,7 +124,7 @@ describe('ReadableStreamWithSize', () => {
   it('should handle empty file list', async () => {
     const files: any[] = []
 
-    const stream = makeZipWithSize(files, {
+    const stream = makeZip(files, {
       metadata: files
     })
 
@@ -120,7 +142,7 @@ describe('ReadableStreamWithSize', () => {
       { name: 'test.txt', input: 'Hello', size: 5 }
     ]
 
-    const stream: ReadableStreamWithSize<Uint8Array> = makeZipWithSize(files, {
+    const stream: ReadableStreamWithSize<Uint8Array> = makeZip(files, {
       metadata: files
     })
 
@@ -146,7 +168,7 @@ describe('ReadableStreamWithSize', () => {
       { name: 'buffer.txt', input: new TextEncoder().encode(bufferContent), size: bufferContent.length }
     ]
 
-    const stream = makeZipWithSize(files, {
+    const stream = makeZip(files, {
       metadata: files
     })
 
@@ -174,7 +196,7 @@ describe('ReadableStreamWithSize', () => {
     ]
 
     // No metadata provided, so size prediction should fail gracefully
-    const stream = makeZipWithSize(files)
+    const stream = makeZip(files)
 
     expect(stream).toBeInstanceOf(ReadableStream)
     

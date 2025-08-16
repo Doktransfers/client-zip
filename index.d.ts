@@ -66,10 +66,8 @@ export declare function downloadZip(files: ForAwaitable<InputWithMeta | InputWit
 
 export declare function downloadZipWithEntries(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): { response: Response, entries: Promise<ZipEntryMetadata[]> }
 
-export declare function makeZip(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): ReadableStream<Uint8Array>
+export declare function makeZip(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): ReadableStreamWithSize<Uint8Array>
 
-export declare function makeZipWithSize(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): ReadableStreamWithSize<Uint8Array>
-
-export declare function makeZipWithEntries(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): { stream: ReadableStream<Uint8Array>, entries: Promise<ZipEntryMetadata[]> }
+export declare function makeZipWithEntries(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): { stream: ReadableStreamWithSize<Uint8Array>, entries: Promise<ZipEntryMetadata[]> }
 
 export { ZipEntryMetadata, ReadableStreamWithSize }
