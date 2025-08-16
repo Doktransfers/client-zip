@@ -18,20 +18,44 @@ type InputFolder = { name: any, lastModified?: any, input?: never, size?: never,
  type JustMeta = { input?: StreamLike | undefined, name: any, lastModified?: any, size: number | bigint, mode?: number }
  
  type ForAwaitable<T> = AsyncIterable<T> | Iterable<T>
+
+/** Enhanced ReadableStream interface with size property */
+interface ReadableStreamWithSize<T> extends ReadableStream<T> {
+  readonly size?: bigint
+}
+
+/** Metadata for ZIP entries */
+interface ZipEntryMetadata {
+  filename: string
+  offset: bigint
+  dataOffset: bigint
+  compressedSize: bigint
+  uncompressedSize: bigint
+  crc32: number
+  compressionMethod: number
+  flags: number
+  headerSize: number
+}
  
  type Options = {
-  /** If provided, the returned Response will have its `Content-Length` header set to this value.
-  * It can be computed accurately with the `predictLength` function. */
-  length?: number | bigint
-  /** If provided, the returned Response will have its `Content-Length` header set to the result of
-  * calling `predictLength` on that metadata. Overrides the `length` option. */
-  metadata?: Iterable<InputWithMeta | InputWithSizeMeta | JustMeta>
-  /** The ZIP *language encoding flag* will always be set when a filename was given as a string,
-   * but when it is given as an ArrayView or ArrayBuffer, it depends on this option :
-   * - `true`: always on (ArrayBuffers will *always* be flagged as UTF-8) — recommended,
-   * - `false`: always off (ArrayBuffers will *never* be flagged as UTF-8),
-   * - `undefined`: each ArrayBuffer will be tested and flagged if it is valid UTF-8. */
-  buffersAreUTF8?: boolean
+ /** If provided, the returned Response will have its `Content-Length` header set to this value.
+ * It can be computed accurately with the `predictLength` function. */
+ length?: number | bigint
+ /** If provided, the returned Response will have its `Content-Length` header set to the result of
+ * calling `predictLength` on that metadata. Overrides the `length` option. */
+ metadata?: Iterable<InputWithMeta | InputWithSizeMeta | JustMeta>
+ /** The ZIP *language encoding flag* will always be set when a filename was given as a string,
+  * but when it is given as an ArrayView or ArrayBuffer, it depends on this option :
+  * - `true`: always on (ArrayBuffers will *always* be flagged as UTF-8) — recommended,
+  * - `false`: always off (ArrayBuffers will *never* be flagged as UTF-8),
+  * - `undefined`: each ArrayBuffer will be tested and flagged if it is valid UTF-8. */
+ buffersAreUTF8?: boolean
+ /** Callback that receives metadata for each ZIP entry as it's processed.
+  * Useful for getting entry offsets, data offsets, CRC32 values, etc. */
+ onEntry?: (entry: ZipEntryMetadata) => void
+ /** AbortSignal to cancel the ZIP generation process.
+  * When aborted, the ZIP generation will stop and throw an AbortError. */
+ signal?: AbortSignal
 } 
 
 /** Given an iterable of file metadata (or equivalent),
@@ -40,4 +64,12 @@ export declare function predictLength(files: Iterable<InputWithMeta | InputWithS
 
 export declare function downloadZip(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): Response
 
+export declare function downloadZipWithEntries(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): { response: Response, entries: Promise<ZipEntryMetadata[]> }
+
 export declare function makeZip(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): ReadableStream<Uint8Array>
+
+export declare function makeZipWithSize(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): ReadableStreamWithSize<Uint8Array>
+
+export declare function makeZipWithEntries(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): { stream: ReadableStream<Uint8Array>, entries: Promise<ZipEntryMetadata[]> }
+
+export { ZipEntryMetadata, ReadableStreamWithSize }

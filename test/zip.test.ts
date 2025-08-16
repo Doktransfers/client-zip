@@ -47,7 +47,13 @@ describe('ZIP', () => {
       const file = {...baseFile}
       const chunks: Uint8Array[] = []
       for await (const chunk of fileData(file)) chunks.push(chunk)
-      const actual = new Uint8Array(chunks.reduce((acc, chunk) => [...acc, ...chunk], []))
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+      const actual = new Uint8Array(totalLength)
+      let offset = 0
+      for (const chunk of chunks) {
+        actual.set(chunk, offset)
+        offset += chunk.length
+      }
       expect(actual).toEqual(new Uint8Array(zipSpec))
     })
 
