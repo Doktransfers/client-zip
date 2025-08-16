@@ -56,11 +56,21 @@ export function normalizeInput(input?: File | Response | BufferLike | StreamLike
   throw new TypeError("Unsupported input format.")
 }
 
-export function ReadableFromIterator<T extends BufferLike>(iter: AsyncIterator<T>, upstream: AsyncIterator<any> = iter) {
+export function ReadableFromIterator<T extends BufferLike>(iter: AsyncIterator<T>, upstream: AsyncIterator<any> = iter, signal?: AbortSignal) {
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
+      if (signal?.aborted) {
+        controller.error(new DOMException('The operation was aborted', 'AbortError'))
+        return
+      }
+      
       let pushedSize = 0
       while (controller.desiredSize! > pushedSize) {
+        if (signal?.aborted) {
+          controller.error(new DOMException('The operation was aborted', 'AbortError'))
+          return
+        }
+        
         const next = await iter.next()
         if (next.value) {
           const chunk = normalizeChunk(next.value)

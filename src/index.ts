@@ -35,6 +35,9 @@ export type Options = {
   /** Callback that receives metadata for each ZIP entry as it's processed.
    * Useful for getting entry offsets, data offsets, CRC32 values, etc. */
   onEntry?: (entry: ZipEntryMetadata) => void
+  /** AbortSignal to cancel the ZIP generation process.
+   * When aborted, the ZIP generation will stop and throw an AbortError. */
+  signal?: AbortSignal
 }
 
 function normalizeArgs(file: InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder | JustMeta) {
@@ -80,7 +83,78 @@ export function downloadZip(files: ForAwaitable<InputWithMeta | InputWithSizeMet
   return new Response(makeZip(files, options), { headers })
 }
 
+export function downloadZipWithEntries(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options: Options = {}): { response: Response, entries: Promise<ZipEntryMetadata[]> } {
+  const { stream, entries } = makeZipWithEntries(files, options)
+  
+  const headers: Record<string, any> = { "Content-Type": "application/zip", "Content-Disposition": "attachment" }
+  if ((typeof options.length === "bigint" || Number.isInteger(options.length)) && options.length! > 0) headers["Content-Length"] = String(options.length)
+  if (options.metadata) headers["Content-Length"] = String(predictLength(options.metadata))
+  
+  const response = new Response(stream, { headers })
+  
+  return {
+    response,
+    entries
+  }
+}
+
 export function makeZip(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options: Options = {}) {
   const mapped = mapFiles(files)
-  return ReadableFromIterator(loadFiles(mapped, options), mapped);
+  return ReadableFromIterator(loadFiles(mapped, options), mapped, options.signal);
+}
+
+export function makeZipWithEntries(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options: Options = {}): { stream: ReadableStream<Uint8Array>, entries: Promise<ZipEntryMetadata[]> } {
+  const mapped = mapFiles(files)
+  const entriesCollector: ZipEntryMetadata[] = []
+  
+  let entriesResolve!: (entries: ZipEntryMetadata[]) => void
+  let entriesReject!: (error: any) => void
+  
+  const entriesPromise = new Promise<ZipEntryMetadata[]>((resolve, reject) => {
+    entriesResolve = resolve
+    entriesReject = reject
+  })
+  
+  // Create options with our entry collector
+  const optionsWithCollector = {
+    ...options,
+    onEntry: (entry: ZipEntryMetadata) => {
+      entriesCollector.push(entry)
+      // Also call the original callback if provided
+      options.onEntry?.(entry)
+    }
+  }
+  
+  // Create the stream with a wrapper that resolves the entries promise when done
+  const originalIterator = loadFiles(mapped, optionsWithCollector)
+  const wrappedIterator = wrapIteratorForEntries(originalIterator, entriesResolve, entriesReject, entriesCollector)
+  
+  const stream = ReadableFromIterator(wrappedIterator, mapped, options.signal)
+  
+  return {
+    stream,
+    entries: entriesPromise
+  }
+}
+
+async function* wrapIteratorForEntries<T>(
+  iterator: AsyncGenerator<T>, 
+  resolve: (entries: ZipEntryMetadata[]) => void,
+  reject: (error: any) => void,
+  entriesCollector: ZipEntryMetadata[]
+): AsyncGenerator<T> {
+  try {
+    let result = await iterator.next()
+    while (!result.done) {
+      yield result.value
+      result = await iterator.next()
+    }
+    // Iterator completed successfully, resolve with collected entries
+    resolve(entriesCollector)
+    return result.value
+  } catch (error) {
+    // Iterator failed, reject the entries promise
+    reject(error)
+    throw error
+  }
 }

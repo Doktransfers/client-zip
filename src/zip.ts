@@ -61,6 +61,12 @@ export interface ZipEntryMetadata {
   headerSize: number;
 }
 
+function checkAbortSignal(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new DOMException('The operation was aborted', 'AbortError')
+  }
+}
+
 export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metadata>, options: Options & { onEntry?: (entry: ZipEntryMetadata) => void }) {
   const centralRecord: Uint8Array[] = []
   let offset = 0n
@@ -69,6 +75,7 @@ export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metad
 
   // write files
   for await (const file of files) {
+    checkAbortSignal(options.signal)
     const flags = flagNameUTF8(file, options.buffersAreUTF8)
     const localHeaderSize = fileHeaderLength + file.encodedName.length;
     const currentOffset = Number(offset);
@@ -76,7 +83,7 @@ export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metad
     yield fileHeader(file, flags)
     yield new Uint8Array(file.encodedName)
     if (file.isFile) {
-      yield* fileData(file)
+      yield* fileData(file, options.signal)
     }
     const bigFile = file.uncompressedSize! >= 0xffffffffn
     const bigOffset = offset >= 0xffffffffn
@@ -162,9 +169,11 @@ export function fileHeader(file: ZipEntryDescription & Metadata, flags = 0) {
   return makeUint8Array(header)
 }
 
-export async function* fileData(file: ZipFileDescription & Metadata) {
+export async function* fileData(file: ZipFileDescription & Metadata, signal?: AbortSignal) {
   let { bytes } = file
   if ("then" in bytes) bytes = await bytes
+  checkAbortSignal(signal)
+  
   if (bytes instanceof Uint8Array) {
     yield bytes
     file.crc = crc32(bytes, 0)
@@ -174,6 +183,7 @@ export async function* fileData(file: ZipFileDescription & Metadata) {
     file.crc = 0 // Initialize CRC for empty streams
     const reader = bytes.getReader()
     while (true) {
+      checkAbortSignal(signal)
       const { value, done } = await reader.read()
       if (done) break
       file.crc = crc32(value!, file.crc)
