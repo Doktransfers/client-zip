@@ -1,65 +1,57 @@
-import { assertEquals, assertThrows } from "https://deno.land/std@0.132.0/testing/asserts.ts"
-import { normalizeMetadata } from "../src/metadata.ts"
+import { describe, expect, it } from 'vitest'
+import { normalizeMetadata } from "../src/metadata"
 
 const encodedName = new TextEncoder().encode("test.txt")
 const encodedFolderName = new TextEncoder().encode("root/folder/")
 
-/************************************** Responses **************************************/
+describe('Metadata', () => {
+  describe('Responses', () => {
+    it('needs a filename along Responses with insufficient metadata', () => {
+      expect(() => normalizeMetadata(new Response("four", {
+        headers: { "content-disposition": "attachment" }
+      }))).toThrow("The file must have a name.")
+    })
 
-Deno.test("normalizeMetadata needs a filename along Responses with insufficient metadata", () => {
-  assertThrows(() => normalizeMetadata(new Response("four", {
-    headers: { "content-disposition": "attachment" }
-  })), Error, "The file must have a name.")
-})
+    it('guesses filename from Content-Disposition', () => {
+      const metadata = normalizeMetadata(new Response("four", {
+        headers: { "content-disposition": "attachment; filename=test.txt; size=0" }
+      }))
+      expect(metadata).toEqual({ uncompressedSize: 0n, encodedName, nameIsBuffer: false })
+    })
 
-Deno.test("normalizeMetadata guesses filename from Content-Disposition", () => {
-  const metadata = normalizeMetadata(new Response("four", {
-    headers: { "content-disposition": "attachment; filename=test.txt; size=0" }
-  }))
-  assertEquals(metadata, { uncompressedSize: 0n, encodedName, nameIsBuffer: false })
-})
+    it('guesses filename from non latin Content-Disposition', () => {
+      const metadata = normalizeMetadata(new Response("four", {
+        headers: { "content-disposition": "attachment; filename* = UTF-8''%CF%8C%CE%BD%CE%BF%CE%BC%CE%B1%20%CE%B1%CF%81%CF%87%CE%B5%CE%AF%CE%BF%CF%85.txt" }
+      }))
+      expect(metadata).toEqual({ uncompressedSize: 0n, encodedName: new TextEncoder().encode("όνομα αρχείου.txt"), nameIsBuffer: false })
+    })
 
-Deno.test("normalizeMetadata guesses filename from non latin Content-Disposition", () => {
-  const metadata = normalizeMetadata(new Response("four", {
-    headers: { "content-disposition": "attachment; filename* = UTF-8''%CF%8C%CE%BD%CE%BF%CE%BC%CE%B1%20%CE%B1%CF%81%CF%87%CE%B5%CE%AF%CE%BF%CF%85.txt" }
-  }))
-  assertEquals(metadata, { uncompressedSize: 0n,encodedName: new TextEncoder().encode("όνομα αρχείου.txt"), nameIsBuffer: false })
-})
-
-
-Deno.test("normalizeMetadata guesses filename from a Response URL", () => {
-  const response = Object.create(Response.prototype, {
-    url: { get() { return "https://example.com/path/test.txt" } },
-    headers: { get() { return new Headers() } }
+    it('guesses filename from a Response URL', () => {
+      const response = Object.create(Response.prototype, {
+        url: { get() { return "https://example.com/path/test.txt" } },
+        headers: { get() { return new Headers() } }
+      })
+      const metadata = normalizeMetadata(response)
+      expect(metadata).toEqual({ uncompressedSize: 0n, encodedName, nameIsBuffer: false })
+    })
   })
-  const metadata = normalizeMetadata(response)
-  assertEquals(metadata, { uncompressedSize: 0n, encodedName, nameIsBuffer: false })
-})
 
-Deno.test("normalizeMetadata guesses filename from a Response URL with trailing slash", () => {
-  const response = Object.create(Response.prototype, {
-    url: { get() { return "https://example.com/path/test.txt/" } },
-    headers: { get() { return new Headers() } }
+  describe('Files', () => {
+    it('reads filename and size from a File', () => {
+      const metadata = normalizeMetadata(new File(["four"], "test.txt"))
+      expect(metadata).toEqual({ uncompressedSize: 4n, encodedName, nameIsBuffer: false })
+    })
   })
-  const metadata = normalizeMetadata(response)
-  assertEquals(metadata, { uncompressedSize: 0n, encodedName, nameIsBuffer: false })
-})
 
-/**************************************   Files   **************************************/
+  describe('Folders', () => {
+    it('fixes trailing slashes in folder names', () => {
+      const metadata = normalizeMetadata(undefined, new TextEncoder().encode("root/folder"))
+      expect(metadata).toEqual({ uncompressedSize: 0n, encodedName: encodedFolderName, nameIsBuffer: true })
+    })
 
-Deno.test("normalizeMetadata reads filename and size from a File", () => {
-  const metadata = normalizeMetadata(new File(["four"], "test.txt"))
-  assertEquals(metadata, { uncompressedSize: 4n, encodedName, nameIsBuffer: false })
-})
-
-/**************************************  Folders  **************************************/
-
-Deno.test("normalizeMetadata fixes trailing slashes in folder names", () => {
-  const metadata = normalizeMetadata(undefined, new TextEncoder().encode("root/folder"))
-  assertEquals(metadata, { uncompressedSize: 0n, encodedName: encodedFolderName, nameIsBuffer: true })
-})
-
-Deno.test("normalizeMetadata fixes trailing slashes in file names", () => {
-  const metadata = normalizeMetadata(undefined, encodedFolderName, 0n)
-  assertEquals(metadata, { uncompressedSize: 0n, encodedName: new TextEncoder().encode("root/folder"), nameIsBuffer: true })
+    it('fixes trailing slashes in file names', () => {
+      const metadata = normalizeMetadata(undefined, encodedFolderName, 0n)
+      expect(metadata).toEqual({ uncompressedSize: 0n, encodedName: new TextEncoder().encode("root/folder"), nameIsBuffer: true })
+    })
+  })
 })

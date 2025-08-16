@@ -1,15 +1,31 @@
 {
   "compilerOptions": {
-    "baseUrl": "src",
-    "moduleResolution": "node",
-    "module": "ES2015",
     "target": "ES2020",
-    "strictFunctionTypes": true,
-    "noImplicitReturns": true,
-    "lib": ["WebWorker"],
-    "paths": {
-      "*.ts": ["*"]
-    }
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "dist",
+    "declaration": true,
+    "types": [
+      "vitest/globals",
+      "node"
+    ]
   },
-  "include": ["src/*.ts"],
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

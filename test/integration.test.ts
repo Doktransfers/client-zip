@@ -1,42 +1,47 @@
-import { assertEquals } from "https://deno.land/std@0.132.0/testing/asserts.ts"
-import { downloadZip } from "../src/index.ts"
+import { describe, expect, it } from 'vitest'
+import { downloadZip } from "../src"
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
-const zipSpec = Deno.readFileSync("./test/APPNOTE.TXT")
+const zipSpec = readFileSync(join(__dirname, 'APPNOTE.TXT'))
 const specName = new TextEncoder().encode("APPNOTE.TXT")
 const specDate = new Date("2019-04-26T02:00")
 
-Deno.test("downloadZip propagates pulling and cancellation", async (t) => {
-  const thrown: any[] = []
-  let pulled = 0
-  const input: IterableIterator<{ input: Uint8Array, name: Uint8Array, lastModified: Date }> = {
-    next() {
-      if (pulled++) return { done: true, value: undefined }
-      return { done: false, value: { input: zipSpec, name: specName, lastModified: specDate } }
-    },
-    throw(err: any) {
-      thrown.push(err)
-      return { done: true, value: undefined }
-    },
-    [Symbol.iterator]() {
-      return this
+describe('downloadZip', () => {
+  it('propagates pulling and cancellation', async () => {
+    const thrown: any[] = []
+    let pulled = 0
+    const input: IterableIterator<{ input: Uint8Array, name: Uint8Array, lastModified: Date }> = {
+      next() {
+        if (pulled++) return { done: true, value: undefined }
+        return { done: false, value: { input: zipSpec, name: specName, lastModified: specDate } }
+      },
+      throw(err: any) {
+        thrown.push(err)
+        return { done: true, value: undefined }
+      },
+      [Symbol.iterator]() {
+        return this
+      }
     }
-  }
-  const response = downloadZip(input)
-  const reader = response.body!.getReader()
-  await t.step("it does not pull from its input until someone reads the output", () => {
-    assertEquals(pulled, 0)
-  })
-  await t.step("it pulls lazily from the input iterable", async () => {
+
+    const response = downloadZip(input)
+    const reader = response.body!.getReader()
+
+    // it does not pull from its input until someone reads the output
+    expect(pulled).toBe(0)
+
+    // it pulls lazily from the input iterable
     for (let i = 0; i < 2; i++) await reader.read()
-    assertEquals(pulled, 1)
+    expect(pulled).toBe(1)
     for (let i = 0; i < 4; i++) await reader.read()
-    assertEquals(pulled, 2)
-    assertEquals(thrown.length, 0)
-  })
-  await t.step("it cancels the input iterable when its output is cancelled", async () => {
+    expect(pulled).toBe(2)
+    expect(thrown.length).toBe(0)
+
+    // it cancels the input iterable when its output is cancelled
     const error = new Error("I don't want to ZIP anymore !")
     await reader.cancel(error)
-    assertEquals(thrown.length, 1)
-    assertEquals(thrown[0], error)
+    expect(thrown.length).toBe(1)
+    expect(thrown[0]).toBe(error)
   })
 })
