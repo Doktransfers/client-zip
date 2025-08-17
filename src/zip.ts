@@ -60,12 +60,7 @@ export interface ZipEntryMetadata {
   flags: number;
   headerSize: number;
 }
-
-function checkAbortSignal(signal?: AbortSignal) {
-  if (signal?.aborted) {
-    throw new DOMException('The operation was aborted', 'AbortError')
-  }
-}
+ 
 
 export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metadata>, options: Options & { onEntry?: (entry: ZipEntryMetadata) => void }) {
   const centralRecord: Uint8Array[] = []
@@ -75,8 +70,9 @@ export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metad
 
   // write files
   for await (const file of files) {
-    checkAbortSignal(options.signal)
-    const flags = flagNameUTF8(file, options.buffersAreUTF8)
+
+    options.signal?.throwIfAborted();
+    const flags = flagNameUTF8(file, options.buffersAreUTF8);
     const localHeaderSize = fileHeaderLength + file.encodedName.length;
     const currentOffset = Number(offset);
     
@@ -172,7 +168,7 @@ export function fileHeader(file: ZipEntryDescription & Metadata, flags = 0) {
 export async function* fileData(file: ZipFileDescription & Metadata, signal?: AbortSignal) {
   let { bytes } = file
   if ("then" in bytes) bytes = await bytes
-  checkAbortSignal(signal)
+  signal?.throwIfAborted();
   
   if (bytes instanceof Uint8Array) {
     yield bytes
@@ -183,7 +179,7 @@ export async function* fileData(file: ZipFileDescription & Metadata, signal?: Ab
     file.crc = 0 // Initialize CRC for empty streams
     const reader = bytes.getReader()
     while (true) {
-      checkAbortSignal(signal)
+      signal?.throwIfAborted();
       const { value, done } = await reader.read()
       if (done) break
       file.crc = crc32(value!, file.crc)

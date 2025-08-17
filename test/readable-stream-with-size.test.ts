@@ -11,13 +11,13 @@ describe('ReadableStreamWithSize', () => {
     const zipStream = makeZip(files, { metadata: files })
     expect(zipStream).toBeInstanceOf(ReadableStream)
     expect(zipStream).toHaveProperty('size')
-    expect(typeof zipStream.size).toBe('bigint')
+    expect(typeof zipStream.size).toBe('number')
 
     // Test makeZipWithEntries
     const { stream: entriesStream } = makeZipWithEntries(files, { metadata: files })
     expect(entriesStream).toBeInstanceOf(ReadableStream)
     expect(entriesStream).toHaveProperty('size')
-    expect(typeof entriesStream.size).toBe('bigint')
+    expect(typeof entriesStream.size).toBe('number')
 
     // Both should return the same size
     expect(zipStream.size).toBe(entriesStream.size)
@@ -40,8 +40,8 @@ describe('ReadableStreamWithSize', () => {
     // Check that it has the size property
     expect(stream).toHaveProperty('size')
     if (stream.size !== undefined) {
-      expect(typeof stream.size).toBe('bigint')
-      expect(stream.size).toBeGreaterThan(0n)
+      expect(typeof stream.size).toBe('number')
+      expect(stream.size).toBeGreaterThan(0)
       console.log('Predicted ZIP size:', stream.size)
     }
   })
@@ -58,7 +58,7 @@ describe('ReadableStreamWithSize', () => {
     
     // Size might be undefined if prediction failed
     if (stream.size !== undefined) {
-      expect(typeof stream.size).toBe('bigint')
+      expect(typeof stream.size).toBe('number')
     }
   })
 
@@ -87,7 +87,7 @@ describe('ReadableStreamWithSize', () => {
     
     // The actual size should be reasonably close to predicted size
     if (stream.size !== undefined) {
-      const sizeDifference = Math.abs(totalSize - Number(stream.size))
+      const sizeDifference = Math.abs(totalSize - stream.size)
       console.log('Predicted:', stream.size, 'Actual:', totalSize, 'Difference:', sizeDifference)
       
       // Allow reasonable difference due to ZIP overhead
@@ -107,7 +107,7 @@ describe('ReadableStreamWithSize', () => {
     })
 
     if (stream.size !== undefined) {
-      expect(stream.size).toBeGreaterThan(0n)
+      expect(stream.size).toBeGreaterThan(0)
     }
 
     // Should work normally when not aborted
@@ -132,7 +132,7 @@ describe('ReadableStreamWithSize', () => {
     
     // For empty ZIP, size should be the minimal ZIP structure size
     if (stream.size !== undefined) {
-      expect(stream.size).toBeGreaterThan(0n)
+      expect(stream.size).toBeGreaterThan(0)
       console.log('Empty ZIP size:', stream.size)
     }
   })
@@ -153,7 +153,7 @@ describe('ReadableStreamWithSize', () => {
     // Should have the additional size property when cast back
     const streamWithSize = regularStream as ReadableStreamWithSize<Uint8Array>
     if (streamWithSize.size !== undefined) {
-      expect(typeof streamWithSize.size).toBe('bigint')
+      expect(typeof streamWithSize.size).toBe('number')
     }
   })
 
@@ -173,7 +173,7 @@ describe('ReadableStreamWithSize', () => {
     })
 
     if (stream.size !== undefined) {
-      expect(stream.size).toBeGreaterThan(0n)
+      expect(stream.size).toBeGreaterThan(0)
     }
     
     // Consume the stream to verify it works
