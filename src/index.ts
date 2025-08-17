@@ -78,7 +78,7 @@ export type { ZipEntryMetadata }
 
 // Enhanced ReadableStream interface with size property
 export interface ReadableStreamWithSize<T> extends ReadableStream<T> {
-  size?: bigint
+  readonly size?: number
 }
 
 export function downloadZip(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options: Options = {}) {
@@ -124,13 +124,13 @@ export function makeZip(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | 
     // If prediction fails, size will be undefined
   }
 
-  const stream = ReadableFromIterator(loadFiles(mapped, options), mapped, options.signal, predictedSize);
+  const stream = ReadableFromIterator(loadFiles(mapped, options), mapped, options.signal, predictedSize ? Number(predictedSize) : undefined);
 
   // Create enhanced stream with size property
   const enhancedStream = stream as ReadableStreamWithSize<Uint8Array>
   if (predictedSize !== undefined) {
     Object.defineProperty(enhancedStream, 'size', {
-      value: predictedSize,
+      value: Number(predictedSize),
       writable: false,
       enumerable: true,
       configurable: false
@@ -182,13 +182,13 @@ export function makeZipWithEntries(files: ForAwaitable<InputWithMeta | InputWith
   const originalIterator = loadFiles(mapped, optionsWithCollector)
   const wrappedIterator = wrapIteratorForEntries(originalIterator, entriesResolve, entriesReject, entriesCollector)
 
-  const stream = ReadableFromIterator(wrappedIterator, mapped, options.signal, predictedSize)
+  const stream = ReadableFromIterator(wrappedIterator, mapped, options.signal, predictedSize ? Number(predictedSize) : undefined)
 
   // Create enhanced stream with size property
   const enhancedStream = stream as ReadableStreamWithSize<Uint8Array>
   if (predictedSize !== undefined) {
     Object.defineProperty(enhancedStream, 'size', {
-      value: predictedSize,
+      value: Number(predictedSize),
       writable: false,
       enumerable: true,
       configurable: false

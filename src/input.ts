@@ -56,7 +56,7 @@ export function normalizeInput(input?: File | Response | BufferLike | StreamLike
   throw new TypeError("Unsupported input format.")
 }
 
-export function ReadableFromIterator<T extends BufferLike>(iter: AsyncIterator<T>, upstream: AsyncIterator<any> = iter, signal?: AbortSignal, predictedSize?: bigint) {
+export function ReadableFromIterator<T extends BufferLike>(iter: AsyncIterator<T>, upstream: AsyncIterator<any> = iter, signal?: AbortSignal, predictedSize?: number) {
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
       if (signal?.aborted) {

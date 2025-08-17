@@ -21,7 +21,7 @@ type ForAwaitable<T> = AsyncIterable<T> | Iterable<T>
 
 /** Enhanced ReadableStream interface with size property */
 interface ReadableStreamWithSize<T> extends ReadableStream<T> {
-  size?: bigint
+  readonly size?: number
 }
 
 /** Metadata for ZIP entries */
