@@ -74,7 +74,6 @@ export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metad
     options.signal?.throwIfAborted();
     const flags = flagNameUTF8(file, options.buffersAreUTF8);
     const localHeaderSize = fileHeaderLength + file.encodedName.length;
-    const currentOffset = Number(offset);
     
     yield fileHeader(file, flags)
     yield new Uint8Array(file.encodedName)
