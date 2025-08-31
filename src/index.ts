@@ -20,6 +20,10 @@ type InputFolder = { name: any, lastModified?: any, input?: never, size?: never,
 type JustMeta = { input?: StreamLike | undefined, name: any, lastModified?: any, size: number | bigint, mode?: number }
 
 export type Options = {
+  /** The size of the first part of the file. */
+  firstPartSize?: number
+  /** The size of the last part of the file. */
+  lastPartSize?: number
   /** If provided, the returned Response will have its `Content-Length` header set to this value.
    * It can be computed accurately with the `predictLength` function. */
   length?: number | bigint

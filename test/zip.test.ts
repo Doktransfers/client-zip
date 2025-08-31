@@ -46,7 +46,7 @@ describe('ZIP', () => {
     it('yields all the file\'s data', async () => {
       const file = {...baseFile}
       const chunks: Uint8Array[] = []
-      for await (const chunk of fileData(file)) chunks.push(chunk)
+      for await (const chunk of fileData({ file })) chunks.push(chunk)
       const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
       const actual = new Uint8Array(totalLength)
       let offset = 0
@@ -61,7 +61,7 @@ describe('ZIP', () => {
       const file = {...baseFile}
       expect(file.uncompressedSize).toBeUndefined()
       expect(file.crc).toBeUndefined()
-      for await (const _ of fileData(file));
+      for await (const _ of fileData({ file }));
       expect(file.uncompressedSize).toBe(BigInt(zipSpec.length))
       expect(file.crc).toBe(0xbb3afe3f)
     })

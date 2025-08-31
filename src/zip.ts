@@ -11,6 +11,7 @@ const centralHeaderSignature = 0x504b_0102, centralHeaderLength = 46
 const endSignature = 0x504b_0506, endLength = 22
 const zip64endRecordSignature = 0x504b_0606, zip64endRecordLength = 56
 const zip64endLocatorSignature = 0x504b_0607, zip64endLocatorLength = 20
+const DEFAULT_CHUNK = 64 * 1024 // 64KiB default similar to common stream chunk sizes 
 
 export type ForAwaitable<T> = AsyncIterable<T> | Iterable<T>
 
@@ -37,7 +38,7 @@ export function contentLength(files: Iterable<Omit<Metadata, 'nameIsBuffer'>>) {
   return centralLength + offset
 }
 
-export function flagNameUTF8({encodedName, nameIsBuffer}: Metadata, buffersAreUTF8?: boolean) {
+export function flagNameUTF8({ encodedName, nameIsBuffer }: Metadata, buffersAreUTF8?: boolean) {
   // @ts-ignore
   return (!nameIsBuffer || (buffersAreUTF8 ?? tryUTF8(encodedName))) * 0b1000
 }
@@ -60,7 +61,7 @@ export interface ZipEntryMetadata {
   flags: number;
   headerSize: number;
 }
- 
+
 
 export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metadata>, options: Options & { onEntry?: (entry: ZipEntryMetadata) => void }) {
   const centralRecord: Uint8Array[] = []
@@ -74,11 +75,11 @@ export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metad
     options.signal?.throwIfAborted();
     const flags = flagNameUTF8(file, options.buffersAreUTF8);
     const localHeaderSize = fileHeaderLength + file.encodedName.length;
-    
+
     yield fileHeader(file, flags)
     yield new Uint8Array(file.encodedName)
     if (file.isFile) {
-      yield* fileData(file, options.signal)
+      yield* fileData({ file, firstPartSize: options.firstPartSize, lastPartSize: options.lastPartSize, signal: options.signal })
     }
     const bigFile = file.uncompressedSize! >= 0xffffffffn
     const bigOffset = offset >= 0xffffffffn
@@ -164,11 +165,51 @@ export function fileHeader(file: ZipEntryDescription & Metadata, flags = 0) {
   return makeUint8Array(header)
 }
 
-export async function* fileData(file: ZipFileDescription & Metadata, signal?: AbortSignal) {
-  let { bytes } = file
-  if ("then" in bytes) bytes = await bytes
+// Overloads for backward compatibility
+export async function* fileData(params: { file: ZipFileDescription & Metadata, firstPartSize?: number, lastPartSize?: number, signal?: AbortSignal }): AsyncGenerator<Uint8Array> {
+  const { file, firstPartSize = DEFAULT_CHUNK, lastPartSize = DEFAULT_CHUNK, signal } = params
+  const lastPartExplicit: boolean = Object.prototype.hasOwnProperty.call(params, 'lastPartSize')
+  let { bytes, blob } = file
+
   signal?.throwIfAborted();
-  
+
+  if (blob instanceof Blob) {
+
+    const size = blob.size
+    file.uncompressedSize = 0n
+    file.crc = 0
+    if (size === 0) return
+
+    let offset = 0
+
+    // Emit all full-size first parts
+    while (offset + firstPartSize < size) {
+      signal?.throwIfAborted();
+      const chunkBuf = new Uint8Array(await blob.slice(offset, offset + firstPartSize).arrayBuffer())
+      file.crc = crc32(chunkBuf, file.crc)
+      file.uncompressedSize += BigInt(chunkBuf.length)
+      yield chunkBuf
+      offset += firstPartSize
+    }
+
+    // Emit the last part
+    if (offset < size) {
+      const remaining = size - offset
+      if (params.lastPartSize && remaining !== lastPartSize) {
+        throw new Error(`Invalid lastPartSize: expected ${remaining}, got ${lastPartSize}`)
+      }
+
+      signal?.throwIfAborted();
+      const lastBuf = new Uint8Array(await blob.slice(offset, size).arrayBuffer())
+      file.crc = crc32(lastBuf, file.crc)
+      file.uncompressedSize += BigInt(lastBuf.length)
+      yield lastBuf
+    }
+
+    return
+  }
+
+  if ("then" in bytes) bytes = await bytes
   if (bytes instanceof Uint8Array) {
     yield bytes
     file.crc = crc32(bytes, 0)
