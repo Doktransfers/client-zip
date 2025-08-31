@@ -49,6 +49,46 @@ async function downloadTestZip() {
 }
 ```
 
+# Testing
+
+## Regular Tests
+
+Run the standard test suite:
+
+```sh
+npm test
+```
+
+Or run tests in watch mode:
+
+```sh
+npm run test:watch
+```
+
+## Large File Tests
+
+The project includes tests for handling large files and directories (ZIP64 format testing). These tests are **tagged with 'large-files'** and won't run during regular test execution, as they:
+
+- Process large files (>4GB) or directories with many files
+- Can take a long time to complete (up to 2 hours)
+- Require specific test data to be present
+
+To run the large file tests on demand:
+
+```sh
+npm run test:large-files
+```
+
+Or run them in watch mode:
+
+```sh
+npm run test:large-files:watch
+```
+
+**Note**: Make sure you have the required test data available before running these tests. See the test files for specific requirements.
+
+The large file tests will appear in your IDE test explorer but won't execute unless you explicitly run them with the `--tag large-files` flag.
+
 # Compatibility
 
 client-zip works in all modern browsers (and Deno) out of the box. If you bundle it with your app and try to transpile it down to lower than ES2020, it will break because it needs BigInts. [Version 1.x](https://www.npmjs.com/package/client-zip/v/nozip64) may be painfully transpiled down to as low as ES2015.

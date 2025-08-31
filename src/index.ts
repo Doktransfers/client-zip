@@ -201,6 +201,62 @@ export function makeZipWithEntries(files: ForAwaitable<InputWithMeta | InputWith
   }
 }
 
+/**
+ * Create a ZIP archive as an async iterator instead of a ReadableStream
+ * This is more compatible with iOS devices that have issues with ReadableStream
+ * @param files The files to include in the ZIP
+ * @param options ZIP creation options
+ * @returns An async iterator that yields Uint8Array chunks and a promise for entries metadata
+ */
+export function makeZipIterator(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options: Options = {}): { iterator: AsyncIterator<Uint8Array>, entries: Promise<ZipEntryMetadata[]>, size?: number } {
+  const mapped = mapFiles(files)
+  const entriesCollector: ZipEntryMetadata[] = []
+
+  let entriesResolve!: (entries: ZipEntryMetadata[]) => void
+  let entriesReject!: (error: any) => void
+
+  const entriesPromise = new Promise<ZipEntryMetadata[]>((resolve, reject) => {
+    entriesResolve = resolve
+    entriesReject = reject
+  })
+
+  // Create options with our entry collector
+  const optionsWithCollector = {
+    ...options,
+    onEntry: (entry: ZipEntryMetadata) => {
+      entriesCollector.push(entry)
+      // Also call the original callback if provided
+      options.onEntry?.(entry)
+    }
+  }
+
+  // Calculate the predicted size if possible
+  let predictedSize: bigint | undefined
+  try {
+    if (options.metadata) {
+      predictedSize = predictLength(options.metadata)
+    } else {
+      const filesArray = Array.isArray(files) ? files : []
+      if (filesArray.length > 0) {
+        const metaIterable = mapMeta(filesArray)
+        predictedSize = contentLength(metaIterable)
+      }
+    }
+  } catch {
+    // If prediction fails, size will be undefined
+  }
+
+  // Create the iterator with a wrapper that resolves the entries promise when done
+  const originalIterator = loadFiles(mapped, optionsWithCollector)
+  const wrappedIterator = wrapIteratorForEntries(originalIterator, entriesResolve, entriesReject, entriesCollector)
+
+  return {
+    iterator: wrappedIterator,
+    entries: entriesPromise,
+    size: predictedSize ? Number(predictedSize) : undefined
+  }
+}
+
 async function* wrapIteratorForEntries<T>(
   iterator: AsyncGenerator<T>,
   resolve: (entries: ZipEntryMetadata[]) => void,

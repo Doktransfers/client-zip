@@ -12,6 +12,8 @@
   "scripts": {
     "test": "vitest",
     "test:watch": "vitest watch",
+    "test:large-files": "vitest --tag large-files",
+    "test:large-files:watch": "vitest --tag large-files watch",
     "coverage": "vitest run --coverage",
     "start": "npm run build:module && npm run build:worker",
     "build:module": "esbuild --target=es2020 --bundle src/index.ts --format=esm | terser --config-file terser.json --module -o index.js",
@@ -34,8 +36,5 @@
     "vitest": "^1.0.0",
     "esbuild": "^0.25.1",
     "terser": "~5.39"
-  },
-  "dependencies": {
-    "vitest": "^3.2.4"
   }
 }

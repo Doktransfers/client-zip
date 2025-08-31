@@ -70,4 +70,6 @@ export declare function makeZip(files: ForAwaitable<InputWithMeta | InputWithSiz
 
 export declare function makeZipWithEntries(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): { stream: ReadableStreamWithSize<Uint8Array>, entries: Promise<ZipEntryMetadata[]> }
 
+export declare function makeZipIterator(files: ForAwaitable<InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder>, options?: Options): { iterator: AsyncIterator<Uint8Array>, entries: Promise<ZipEntryMetadata[]>, size?: number }
+
 export { ZipEntryMetadata, ReadableStreamWithSize }
