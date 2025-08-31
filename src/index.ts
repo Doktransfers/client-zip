@@ -224,7 +224,7 @@ export function makeZipIterator(files: ForAwaitable<InputWithMeta | InputWithSiz
   const optionsWithCollector = {
     ...options,
     onEntry: (entry: ZipEntryMetadata) => {
-      entriesCollector.push(entry)
+      entriesCollector.push(entry);
       // Also call the original callback if provided
       options.onEntry?.(entry)
     }
