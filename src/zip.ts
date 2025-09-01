@@ -168,7 +168,6 @@ export function fileHeader(file: ZipEntryDescription & Metadata, flags = 0) {
 // Overloads for backward compatibility
 export async function* fileData(params: { file: ZipFileDescription & Metadata, firstPartSize?: number, lastPartSize?: number, signal?: AbortSignal }): AsyncGenerator<Uint8Array> {
   const { file, firstPartSize = DEFAULT_CHUNK, lastPartSize = DEFAULT_CHUNK, signal } = params
-  const lastPartExplicit: boolean = Object.prototype.hasOwnProperty.call(params, 'lastPartSize')
   let { bytes, blob } = file
 
   signal?.throwIfAborted();
