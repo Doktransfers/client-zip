@@ -38,11 +38,15 @@ interface ZipEntryMetadata {
 }
 
 type Options = {
+  /** The size of the first part of the file. */
+  firstPartSize?: number
+  /** The size of the last part of the file. */
+  lastPartSize?: number
   /** If provided, the returned Response will have its `Content-Length` header set to this value.
-  * It can be computed accurately with the `predictLength` function. */
+   * It can be computed accurately with the `predictLength` function. */
   length?: number | bigint
   /** If provided, the returned Response will have its `Content-Length` header set to the result of
-  * calling `predictLength` on that metadata. Overrides the `length` option. */
+   * calling `predictLength` on that metadata. Overrides the `length` option. */
   metadata?: Iterable<InputWithMeta | InputWithSizeMeta | JustMeta>
   /** The ZIP *language encoding flag* will always be set when a filename was given as a string,
    * but when it is given as an ArrayView or ArrayBuffer, it depends on this option :
