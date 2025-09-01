@@ -8,6 +8,7 @@ export type ZipFileDescription = {
   crc?: number // will be computed later
   mode: number // UNIX permissions, 0o664 by default
   isFile: true
+  blob?: Blob
 }
 export type ZipFolderDescription = {
   modDate: Date
@@ -36,7 +37,8 @@ export function normalizeInput(input?: File | Response | BufferLike | StreamLike
     isFile,
     modDate: modDate || new Date(input.lastModified),
     bytes: input.stream(),
-    mode
+    mode,
+    blob: input
   }
   if (input instanceof Response) return {
     isFile,
@@ -49,7 +51,7 @@ export function normalizeInput(input?: File | Response | BufferLike | StreamLike
   else if (isNaN(modDate)) throw new Error("Invalid modification date.")
   if (!isFile) return { isFile, modDate, mode }
   if (typeof input === "string") return { isFile, modDate, bytes: encodeString(input), mode }
-  if (input instanceof Blob) return { isFile, modDate, bytes: input.stream(), mode }
+  if (input instanceof Blob) return { isFile, modDate, bytes: input.stream(), mode, blob: input }
   if (input instanceof Uint8Array || input instanceof ReadableStream) return { isFile, modDate, bytes: input, mode }
   if (input instanceof ArrayBuffer || ArrayBuffer.isView(input)) return { isFile, modDate, bytes: makeUint8Array(input), mode }
   if (Symbol.asyncIterator in input) return { isFile, modDate, bytes: ReadableFromIterator(input[Symbol.asyncIterator]()), mode }
