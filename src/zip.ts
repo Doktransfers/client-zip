@@ -65,9 +65,14 @@ export interface ZipEntryMetadata {
 
 export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metadata>, options: Options & { onEntry?: (entry: ZipEntryMetadata) => void }) {
   const centralRecord: Uint8Array[] = []
-  let offset = 0n
-  let fileCount = 0n
-  let archiveNeedsZip64 = false
+  // Initialize from resume state if provided
+  if (options.resume?.centralRecord?.length) {
+    // Make a shallow copy to avoid mutating the passed array
+    for (const chunk of options.resume.centralRecord) centralRecord.push(chunk)
+  }
+  let offset = BigInt(options.resume?.startingOffset ?? 0)
+  let fileCount = BigInt(options.resume?.previousFileCount ?? 0)
+  let archiveNeedsZip64 = Boolean(options.resume?.archiveNeedsZip64)
 
   // write files
   for await (const file of files) {
@@ -112,9 +117,12 @@ export async function* loadFiles(files: ForAwaitable<ZipEntryDescription & Metad
     fileCount++
     offset += BigInt(fileHeaderLength + descriptorLength + file.encodedName.length) + file.uncompressedSize!
     archiveNeedsZip64 ||= bigFile
+
+    // Notify consumer that central record changed; pass a copy to avoid external mutation
+    options.onCentralRecordUpdate?.(centralRecord.slice())
   }
 
-  // write central repository
+  // write central repository (including any resumed central record already present)
   let centralSize = 0n
   for (const record of centralRecord) {
     yield record
@@ -168,13 +176,12 @@ export function fileHeader(file: ZipEntryDescription & Metadata, flags = 0) {
 // Overloads for backward compatibility
 export async function* fileData(params: { file: ZipFileDescription & Metadata, firstPartSize?: number, lastPartSize?: number, signal?: AbortSignal }): AsyncGenerator<Uint8Array> {
   const { file, firstPartSize = DEFAULT_CHUNK, lastPartSize = DEFAULT_CHUNK, signal } = params
-  const lastPartExplicit: boolean = Object.prototype.hasOwnProperty.call(params, 'lastPartSize')
   let { bytes, blob } = file
 
   signal?.throwIfAborted();
 
   if (blob instanceof Blob) {
-
+    
     const size = blob.size
     file.uncompressedSize = 0n
     file.crc = 0

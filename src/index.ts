@@ -19,6 +19,17 @@ type InputFolder = { name: any, lastModified?: any, input?: never, size?: never,
 /** Both filename and size must be provided ; input is not helpful here. */
 type JustMeta = { input?: StreamLike | undefined, name: any, lastModified?: any, size: number | bigint, mode?: number }
 
+export interface ResumeState {
+  /** A previously saved central directory record, as chunks, to prepend at the end. */
+  centralRecord?: Uint8Array[]
+  /** Number of entries that were already included in the saved central directory. */
+  previousFileCount?: number | bigint
+  /** Number of bytes already written before this run (local headers + names + data + descriptors). */
+  startingOffset?: number | bigint
+  /** If any previous entry required Zip64 (e.g., size >= 4GiB), set true to force Zip64 end records. */
+  archiveNeedsZip64?: boolean
+}
+
 export type Options = {
   /** The size of the first part of the file. */
   firstPartSize?: number
@@ -39,9 +50,14 @@ export type Options = {
   /** Callback that receives metadata for each ZIP entry as it's processed.
    * Useful for getting entry offsets, data offsets, CRC32 values, etc. */
   onEntry?: (entry: ZipEntryMetadata) => void
+  /** Callback invoked whenever the central directory grows (after each entry).
+   * You can persist the provided array and pass it back via `resume.centralRecord` to resume. */
+  onCentralRecordUpdate?: (centralRecord: Uint8Array[]) => void
   /** AbortSignal to cancel the ZIP generation process.
    * When aborted, the ZIP generation will stop and throw an AbortError. */
   signal?: AbortSignal
+  /** Resumable generation state. Supply previously saved state to continue a ZIP. */
+  resume?: ResumeState
 }
 
 function normalizeArgs(file: InputWithMeta | InputWithSizeMeta | InputWithoutMeta | InputFolder | JustMeta) {
